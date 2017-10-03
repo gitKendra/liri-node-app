@@ -6,6 +6,7 @@
   "dependencies": {
     "node-spotify-api": "^1.0.7",
     "request": "^2.83.0",
+    "simple-node-logger": "^0.93.30",
     "twitter": "^1.7.1",
     "underscore": "^1.8.3"
   },

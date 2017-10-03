@@ -6,11 +6,19 @@ const Spotify = require('node-spotify-api');
 const Keys = require('./keys.js');
 const _ = require('underscore');
 
+// create a custom timestamp format for log statements
+const SimpleNodeLogger = require('simple-node-logger'),
+	opts = {
+		logFilePath:'log.txt',
+		timestampFormat:'YYYY-MM-DD HH:mm:ss'
+	},
+	log = SimpleNodeLogger.createSimpleLogger( opts );
+
 // Add my credentials to the different Twitter and Spotify instances
 let twitter = new Twitter(Keys.twitterKeys);
 let spotify = new Spotify(Keys.spotifyKeys);
-
-let commandError = "ERROR: Invalid command. Use one of the following commands:"+
+let twitterUser = "@KendraSpoof";
+let commandError = "Invalid command. Use one of the following commands:"+
 	"\nmy-tweets \nspotify-this-song \nmovie-this \ndo-what-it-says";
 let arg = process.argv;
 let command = arg[2];
@@ -22,12 +30,13 @@ if(search !== undefined){
 }
 
 run(command, search);
-// console.log("Command: " + command);
-// console.log("Searching for " + search);
 
-// COMMANDS \\
+
+//****** FUNCTIONS ******\\
+
+// Function that runs the command provided by node user
 function run(command, search){
-	// Make it so liri.js can take in one of the following commands:
+	// Possible commands:
 	switch(command){
 		case "my-tweets":
 			myTweets();
@@ -43,57 +52,61 @@ function run(command, search){
 			break;
 		// Print error if user enters invalid command
 		default:
-			console.log(commandError);
+			log.error(commandError);
 	}
 }
-// my-tweets
-// node liri.js my-tweets
+
 // Function shows your last 20 tweets and when they were created at in your terminal/bash window.
 function myTweets(){
-	console.log("myTweets");
+	log.info("--------------------------------RECENT TWEETS--------------------------------");
 	// Get recent tweets from API
-	twitter.get('statuses/user_timeline', {q: '@KendraSpoof'}, function(error, tweets, response) {
-   		if(error) console.log(error);
-   		// Loop through tweets and print the date/time and tweet for the 20 most recent tweets
+	twitter.get('statuses/user_timeline', {q: twitterUser}, function(error, tweets, response) {
+   		if(error) log.error(error);
+   		// Loop through tweets and print the date/time and tweet for the 20 most recent tweets, if available
 		for(var i = 0; i < tweets.length && i < 20; i++){
-			console.log("%s : %s", tweets[i].created_at, tweets[i].text);
+			log.info(tweets[i].created_at + ": " + tweets[i].text);
 		}
 	});
 }
 
-// spotify-this-song
-// node liri.js spotify-this-song '<song name here>'
-// Shows Artist(s), song's name, preview link from Spotify, album
+// Function shows Artist(s), song's name, preview link from Spotify, and album
 function spotifyThisSong(song){
+	log.info("--------------------------------SPOTIFY SONG--------------------------------");
+	// Set default song to be used if no song was requested
 	if(song === undefined){
 		song = "The+Sign";
 	}	
-	console.log("spotifyThisSong: "+song);
 	// Request song from api
-	spotify.search({ type: 'track', query: song }, function(err, data) {
+	spotify.search({ type: 'track', query: '"'+song+'"', limit: 1 }, function(err, data) {
+		// Error handling
 		if(err){
-			return console.log('Error occurred: ' + err);
+			return log.error('Error occurred: ' + err);
 		}
-		var songInfo = data.tracks.items[0].artists;
-		console.log(songInfo);
+		// Create variables
+		var songInfo = data.tracks.items[0];
+		var artist = [];
+		for(var i = 0; i < songInfo.artists.length; i++){
+			artist.push(songInfo.artists[i].name);
+		}
+		// Print info to screen
+		log.info("Artist(s): " + artist);
+		log.info("Track: " + songInfo.name);
+		log.info("Album: " + songInfo.album.name);
+		log.info("Preview: " + songInfo.preview_url);
 	});
 }
 
-// movie-this
-// node liri.js movie-this '<movie name here>'
-// Shows movie details: title, year, IMDB rating, Rotten Tomatoes Rating, Country produced,
-// language, plot, actors
+// Shows movie title, year, IMDB rating, Rotten Tomatoes Rating, Country produced, language, plot, actors
 function movieThis(movie){
+	log.info("--------------------------------MOVIE INFO--------------------------------");
+	// Set default movie if none supplied
 	if(movie === undefined){
 		movie = "Mr.+Nobody";
 	}
-	console.log("movieThis: "+movie);
 	// Request the OMDB API with the movie specified
 	request("http://www.omdbapi.com/?t=" + movie + "&y=&plot=short&apikey=40e9cece", function(error, response, body) {
-
 		// If the request is successful (i.e. if the response status code is 200)
 		if (!error && response.statusCode === 200) {
-	//	console.log(JSON.parse(body));
 			// Set variable to hold API body as Object
 			let movieInfo = JSON.parse(body);
 			let imdb = "Not rated.";
@@ -104,54 +117,31 @@ function movieThis(movie){
 				imdb = _.find(movieInfo.Ratings, function(rating){ return rating.Source === "Internet Movie Database"}).Value;
 				rt = _.find(movieInfo.Ratings, function(rating){ return rating.Source === "Rotten Tomatoes"}).Value;
 			}
-			// * Title of the movie.
-			console.log("Movie Title: " + movieInfo.Title);
-			// * Year the movie came out.
-			console.log("Year: " + movieInfo.Year);
-			// * IMDB Rating of the movie.
-			console.log("IMDB Rating: " + imdb);
-			// * Rotten Tomatoes Rating of the movie.
-			console.log("Rotten Tomatoes Rating: " + rt);
-			// * Country where the movie was produced.
-			console.log("Country: " + movieInfo.Country);
-			// * Language of the movie.
-			console.log("Language: " + movieInfo.Language);
-			// * Plot of the movie.
-			console.log("Plot: " + movieInfo.Plot);
-			// * Actors in the movie.	
-			console.log("Actors: " + movieInfo.Actors);		
+			// Print details of movie to screen
+			log.info("Movie Title: " + movieInfo.Title);
+			log.info("Year: " + movieInfo.Year);
+			log.info("IMDB Rating: " + imdb);
+			log.info("Rotten Tomatoes Rating: " + rt);
+			log.info("Country: " + movieInfo.Country);
+			log.info("Language: " + movieInfo.Language);
+			log.info("Plot: " + movieInfo.Plot);
+			log.info("Actors: " + movieInfo.Actors);		
 		}
-
 	});
 }
-// do-what-it-says
-// node liri.js do-what-it-says
-// Using the fs Node package, LIRI will take the text inside of random.txt and then use it to call one of LIRI's commands.
+
+// Function that will take the text inside of random.txt and then use it to call one of LIRI's commands.
 function doWhatItSays(){
-	console.log("doWhatItSays");
-
 	fs.readFile('random.txt', 'utf8', function(err, data){
-		if(err) return console.log(err);
+		if(err) return log.error(err);
+	
+	// Separate the command from the search
+	var arg = data.split(",");
+	
+	// Remove any quotes from search term and replace spaces with '+'
+	let search = arg[1].replace(/"/g, '');
+	search = search.replace(/ /g, '+');
 
-		console.log(data);
-		var arg = data.split(",");
-		
-		// Remove any quotes from text file
-		let search = arg[1].replace(/"/g, '');
-		console.log(search);
-		// Replace spaces with + symbols to match API search requirements
-		search = search.replace(/ /g, '+');
-		console.log(search);
-
-		run(arg[0], search);
-
+	run(arg[0], search);
 	});
 }
-
-
-
-// BONUS!! \\
-
-// In addition to logging the data to your terminal/bash window, output the data to a .txt file called log.txt.
-// Make sure you append each command you run to the log.txt file.
-// Do not overwrite your file each time you run a command.
